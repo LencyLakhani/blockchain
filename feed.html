@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>CryptoZombies front-end</title>
+  <link rel="icon" href="favicon.ico">
+  <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css"
+    />
+  <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.2.7-rc.0/web3.min.js"></script>
+  <script language="javascript" type="text/javascript" src="cryptozombies_abi.js"></script>
+  <script
+      type="module"
+      src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+    ></script>
+    <script
+      nomodule
+      src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"
+    ></script>
+
+  <style>
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #111;
+      color: #ffcc00;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      color: #ff0000;
+      margin-top: 10px;
+    }
+
+    .nav {
+      background-color: #222;
+      overflow: hidden;
+    }
+
+    .nav a {
+      float: left;
+      display: block;
+      color: #fff;
+      text-align: center;
+      padding: 14px 20px;
+      text-decoration: none;
+    }
+
+    .nav a:hover {
+      background-color: #444;
+    }
+
+    .button {
+      background-color: #ff0000;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      margin: 10px;
+    }
+
+    .button:hover {
+      background-color: #cc0000;
+    }
+
+    #displayContent {
+      background-color: #333;
+      border: 2px solid #ff0000;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px auto;
+      width: 80%;
+      max-width: 600px;
+      text-align: left;
+    }
+
+    #displayContent ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    #displayContent ul li {
+      padding: 5px 0;
+      color: white;
+    }
+
+    #txStatus {
+      margin-top: 20px;
+      font-style: italic;
+    }
+
+    #zombies {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    #avtar{
+      width: 300px;
+      height: 300px;
+    }
+
+    .logo {
+      max-width: 100px;
+      margin: 10px auto;
+    }
+
+    /* Responsive styles */
+    @media only screen and (max-width: 600px) {
+      .zombie {
+        width: 90%;
+      }
+
+      .button {
+        font-size: 14px;
+        padding: 8px 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="nav">
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="contact.html">Contact Us</a>
+    <a href="feed.html"> Feed Kitty</a>
+  </div>
+
+   <!-- alert text -->
+   <div id="txStatus"></div>
+
+  <h1>Select Kitty you want to feed: </h1>
+
+  <!-- kitty images -->
+  <div class="row">
+    <div class="col">
+        <img src="" alt="kitty1" id="kitty1" width="300" height="300">
+    </div>
+    <div class="col">
+        <img src="" alt="kitty2" id="kitty2" width="300" height="300">
+    </div>
+    <div class="col">
+        <img src="" alt="kitty3" id="kitty3" width="300" height="300">
+    </div>
+  </div>
+
+  <!-- show zombie -->
+  <div id="zombies">
+  </div>
+
+  <script>
+
+    var cryptoZombies;
+    var userAccount;
+
+    function startApp() {
+	
+      //ZombieOwnership contract address
+      var cryptoZombiesAddress = "0x27A13F6209153514A50DA03a6752b9970c3cF5e3";
+
+      cryptoZombies = new web3.eth.Contract(cryptoZombiesABI, cryptoZombiesAddress);
+
+      loadKitty();
+
+      cryptoZombies.events.Transfer({ filter: { _to: userAccount } })
+        .on("data", function (event) {
+          let data = event.returnValues;
+          getZombiesByOwner(userAccount).then(displayZombies);
+        }).on("error", console.error);
+    } 
+
+    function selectAvtar(level) {
+        // const src = src1 === null ? $(avtar).attr("src") : src1;
+        const avtar = [
+          "assets/Level1Zombie/scene.gltf",
+          "assets/Level2Zombie/scene.gltf",
+          "assets/Level3Zombie/scene.gltf",
+          "assets/Level4Zombie/scene.gltf",
+        ];
+        console.log(level);
+        switch (level) {
+          case "1":
+            return avtar[0];
+            break;
+          case "2":
+            return avtar[1];
+            break;
+          case "3":
+            return avtar[2];
+            break;
+          case "4":
+            return avtar[3];
+            break;
+          default:
+            return avtar[0];
+            break;
+        }
+      }
+
+      //Display zombie functionality
+    function displayZombies(ids) {
+        // $("#zombies").empty();
+
+        for (id of ids) {
+          getZombieDetails(id).then(function (zombie) {
+            $("#zombies").append(`
+            <div id="displayAvtar">
+              <model-viewer
+                  id="avtar"
+                  src="${selectAvtar(zombie.level)}"
+                  alt="VR Headset"
+                  autoplay
+                  auto-rotate
+                  shadow-intensity="1"
+                  camera-controls
+                  ar
+                  ios-src="${selectAvtar(zombie.level)}"
+                ></model-viewer>
+              </div>
+              <div id="displayContent">
+                <ul>
+                  <li>id: ${id}</li>
+                <li>Name: ${zombie.name}</li>
+                <li>DNA: ${zombie.dna}</li>
+                <li>Level: ${zombie.level}</li>
+                <li>Wins: ${zombie.winCount}</li>
+                <li>Losses: ${zombie.lossCount}</li>
+                <li>Ready Time: ${zombie.readyTime}</li>
+              </ul>
+              </div>
+            `);
+          });
+        }
+      }
+
+    function getZombieDetails(id) {
+      return cryptoZombies.methods.zombies(id).call()
+    }
+
+    function feedOnKitty(zombieId, kittyId) {
+        $("#txStatus").text("Eating a kitty. This may take a while...");
+        return cryptoZombies.methods
+          .feedOnKitty(zombieId, kittyId)
+          .send({ from: userAccount })
+          .on("receipt", function (receipt) {
+            $("#txStatus").text("Ate a kitty and spawned a new Zombie!");
+            getZombiesByOwner(userAccount).then(displayZombies);
+          })
+          .on("error", function (error) {
+            $("#txStatus").text(error);
+          });
+      }
+
+    function getZombiesByOwner(owner) {
+      return cryptoZombies.methods.getZombiesByOwner(owner).call()
+    }
+
+    function loadKitty(){
+        let apiUrl = "https://api.cryptokitties.co/kitties/" + 1
+        let apiUrl2 = "https://api.cryptokitties.co/kitties/" + 2
+        let apiUrl3 = "https://api.cryptokitties.co/kitties/" + 3
+
+        $.get(apiUrl, function(data) {
+
+            $("#kitty1").attr("src", data.image_url);
+
+        })
+
+        $.get(apiUrl2, function(data) {
+
+            $("#kitty2").attr("src", data.image_url);
+
+        })
+
+        $.get(apiUrl3, function(data) {
+
+            $("#kitty3").attr("src", data.image_url);
+
+        })
+
+    }
+
+    $("#kitty1").click(function(e) {
+
+        feedOnKitty(1, 1);
+        
+    });
+
+    $("#kitty2").click(function(e) {
+
+        feedOnKitty(1, 2);
+    });
+
+    $("#kitty3").click(function(e) {
+
+        feedOnKitty(1, 3);
+    });
+
+    //When account change it refresh window
+    ethereum.on("accountsChanged", (accounts) => {
+        window.location.reload();
+    });
+
+    window.addEventListener('load', async () => {
+      if (window.ethereum) {
+        window.web3 = new Web3(ethereum);
+        try {
+          const accounts = await ethereum.enable();
+          userAccount = accounts[0];
+          startApp();
+        } catch (error) {
+          console.error(error);
+        }
+      } else if (window.web3) {
+        window.web3 = new Web3(web3.currentProvider);
+        userAccount = web3.eth.accounts[0];
+        startApp();
+      } else {
+        console.log('Non-Ethereum browser detected. You should consider trying MetaMask!');
+      }
+    });
+
+
+  </script>
+
+  
+    <!-- bootstrap js  -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
